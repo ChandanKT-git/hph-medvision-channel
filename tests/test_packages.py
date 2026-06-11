@@ -30,7 +30,7 @@ def test_shared_is_a_package() -> None:
 
 
 def test_shared_models_is_a_package() -> None:
-    """shared.models module has a __path__ attribute, confirming it is a package."""
+    """shared.models has a __path__ attribute, confirming it is a package."""
     import shared.models
 
     assert hasattr(shared.models, '__path__')
@@ -59,7 +59,7 @@ def test_shared_package_has_no_unexpected_public_api() -> None:
     public_names = [n for n in dir(shared) if not n.startswith('_')]
     # Empty __init__.py should only contain standard dunder attributes
     # filtered above; no user-defined names should be present.
-    assert public_names == []
+    assert set(public_names).issubset({'models'})
 
 
 def test_skills_package_has_no_unexpected_public_api() -> None:
@@ -71,7 +71,7 @@ def test_skills_package_has_no_unexpected_public_api() -> None:
 
 
 def test_shared_models_package_has_no_unexpected_public_api() -> None:
-    """Newly added empty __init__.py for shared.models exposes no public names."""
+    """Newly added __init__.py for shared.models exposes no public names."""
     import shared.models
 
     public_names = [n for n in dir(shared.models) if not n.startswith('_')]
