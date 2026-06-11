@@ -40,6 +40,7 @@ dev = [
   "bandit >=1.7.5",
   "vulture >=2.7",
   "makim >=1.27.0",
+  "tomli; python_version < '3.11'",
 ]
 
 [tool.bandit]

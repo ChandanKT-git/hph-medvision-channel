@@ -6,7 +6,11 @@ import sys
 from pathlib import Path
 
 import pytest
-import tomllib
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
 
 REPO_ROOT = Path(__file__).parent.parent
 PYPROJECT_PATH = REPO_ROOT / 'pyproject.toml'
