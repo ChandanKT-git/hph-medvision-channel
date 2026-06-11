@@ -1,16 +1,19 @@
-"""Tests for scripts/install-dev.sh — the developer environment setup script."""
+"""Tests for scripts/install-dev.sh — the developer setup script."""
 
 import os
 import re
 import stat
 import subprocess
+
 from pathlib import Path
 
 import pytest
 
 REPO_ROOT = Path(__file__).parent.parent
 SCRIPT_PATH = REPO_ROOT / 'scripts' / 'install-dev.sh'
-SCRIPT_TEXT = SCRIPT_PATH.read_text(encoding='utf-8') if SCRIPT_PATH.exists() else ''
+SCRIPT_TEXT = (
+    SCRIPT_PATH.read_text(encoding='utf-8') if SCRIPT_PATH.exists() else ''
+)
 
 
 # ---------------------------------------------------------------------------
@@ -32,7 +35,9 @@ def test_script_is_executable() -> None:
 def test_script_has_bash_shebang() -> None:
     """The first line must be a valid bash shebang."""
     first_line = SCRIPT_TEXT.splitlines()[0]
-    assert first_line.startswith('#!/'), 'Script must start with a shebang (#!)'
+    assert first_line.startswith('#!/'), (
+        'Script must start with a shebang (#!)'
+    )
     assert 'bash' in first_line, 'Shebang must reference bash'
 
 
@@ -61,7 +66,8 @@ def test_script_passes_bash_syntax_check() -> None:
 def test_script_uses_strict_mode() -> None:
     """Script must use 'set -euo pipefail' for safe execution."""
     assert 'set -euo pipefail' in SCRIPT_TEXT, (
-        "install-dev.sh should use 'set -euo pipefail' for safe shell execution"
+        "install-dev.sh should use 'set -euo pipefail' for safe "
+        'shell execution'
     )
 
 
@@ -71,9 +77,10 @@ def test_script_uses_strict_mode() -> None:
 
 
 def test_script_exports_uv_python() -> None:
-    """Script must export UV_PYTHON so uv installs into the active interpreter."""
+    """Script must export UV_PYTHON so uv installs into the interpreter."""
     assert 'UV_PYTHON' in SCRIPT_TEXT, (
-        'install-dev.sh should set UV_PYTHON to target the active Python interpreter'
+        'install-dev.sh should set UV_PYTHON to target the active Python '
+        'interpreter'
     )
     assert 'export UV_PYTHON' in SCRIPT_TEXT
 
@@ -86,21 +93,21 @@ def test_script_exports_uv_python() -> None:
 def test_script_handles_linux() -> None:
     """Script must contain a Linux branch."""
     assert re.search(r'Linux\*', SCRIPT_TEXT), (
-        "install-dev.sh must handle the Linux* OS case"
+        'install-dev.sh must handle the Linux* OS case'
     )
 
 
 def test_script_handles_macos() -> None:
     """Script must contain a macOS (Darwin) branch."""
     assert re.search(r'Darwin\*', SCRIPT_TEXT), (
-        "install-dev.sh must handle the Darwin* (macOS) OS case"
+        'install-dev.sh must handle the Darwin* (macOS) OS case'
     )
 
 
 def test_script_handles_windows_mingw() -> None:
     """Script must contain a Windows/MINGW branch."""
     assert re.search(r'MINGW\*', SCRIPT_TEXT), (
-        "install-dev.sh must handle the MINGW* (Windows Git Bash) case"
+        'install-dev.sh must handle the MINGW* (Windows Git Bash) case'
     )
 
 
@@ -133,18 +140,20 @@ def test_script_uses_cpu_only_wheels_on_linux_ci() -> None:
 
 def test_script_checks_ci_environment_variable() -> None:
     """Script must branch on the CI environment variable."""
-    assert '${CI' in SCRIPT_TEXT or '"$CI"' in SCRIPT_TEXT or "CI:-" in SCRIPT_TEXT, (
-        "install-dev.sh should test the CI env variable to choose torch wheels"
-    )
+    assert (
+        '${CI' in SCRIPT_TEXT
+        or '"$CI"' in SCRIPT_TEXT
+        or 'CI:-' in SCRIPT_TEXT
+    ), 'install-dev.sh should test the CI env variable to choose torch wheels'
 
 
 def test_script_installs_dev_extras() -> None:
     """Script must install the project with its [dev] optional dependencies."""
-    assert 'pip install -e' in SCRIPT_TEXT or "pip install" in SCRIPT_TEXT, (
+    assert 'pip install -e' in SCRIPT_TEXT or 'pip install' in SCRIPT_TEXT, (
         "install-dev.sh must install the project's dev extras"
     )
     assert '.[dev]' in SCRIPT_TEXT, (
-        "install-dev.sh must install using the [dev] extras group"
+        'install-dev.sh must install using the [dev] extras group'
     )
 
 
@@ -156,7 +165,8 @@ def test_script_installs_dev_extras() -> None:
 def test_script_changes_to_repo_root() -> None:
     """Script must cd to the repository root before installing."""
     assert 'SCRIPT_DIR' in SCRIPT_TEXT or 'cd ' in SCRIPT_TEXT, (
-        'install-dev.sh should navigate to the repo root so relative paths work'
+        'install-dev.sh should navigate to the repo root so relative paths '
+        'work'
     )
 
 

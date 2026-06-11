@@ -1,11 +1,9 @@
-"""Tests for vulture_whitelist.py — the vulture false-positive suppression file."""
+"""Tests for vulture_whitelist.py — the false-positive suppression file."""
 
 import ast
 import py_compile
-import tempfile
-from pathlib import Path
 
-import pytest
+from pathlib import Path
 
 REPO_ROOT = Path(__file__).parent.parent
 WHITELIST_PATH = REPO_ROOT / 'vulture_whitelist.py'
@@ -51,9 +49,9 @@ def test_whitelist_mentions_vulture() -> None:
 def test_whitelist_mentions_false_positives() -> None:
     """The whitelist header should explain it suppresses false positives."""
     content = WHITELIST_PATH.read_text(encoding='utf-8')
-    assert 'false positive' in content.lower() or 'whitelist' in content.lower(), (
-        'vulture_whitelist.py should explain its purpose'
-    )
+    assert (
+        'false positive' in content.lower() or 'whitelist' in content.lower()
+    ), 'vulture_whitelist.py should explain its purpose'
 
 
 def test_whitelist_references_vulture_docs() -> None:
@@ -69,20 +67,19 @@ def test_whitelist_contains_no_syntax_errors_when_executed() -> None:
     source = WHITELIST_PATH.read_text(encoding='utf-8')
     namespace: dict = {}  # type: ignore[type-arg]
     # exec on comment-only files should be completely safe
-    exec(compile(source, str(WHITELIST_PATH), 'exec'), namespace)  # noqa: S102
+    exec(compile(source, str(WHITELIST_PATH), 'exec'), namespace)
 
 
 def test_whitelist_ast_body_is_comment_only() -> None:
     """An empty/comment-only whitelist should have no executable statements."""
     source = WHITELIST_PATH.read_text(encoding='utf-8')
     tree = ast.parse(source)
-    # A whitelist with only comments (and no actual entries yet) has an empty body
+    # A whitelist with only comments (no actual entries yet) has an empty body
     # or only contains Expr nodes with string constants (docstrings).
     non_trivial = [
         node
         for node in ast.walk(tree)
-        if isinstance(node, ast.stmt)
-        and not isinstance(node, ast.Expr)
+        if isinstance(node, ast.stmt) and not isinstance(node, ast.Expr)
     ]
     assert non_trivial == [], (
         'vulture_whitelist.py should contain only comments or simple '

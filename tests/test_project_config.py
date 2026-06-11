@@ -2,10 +2,11 @@
 
 import re
 import sys
-import tomllib
+
 from pathlib import Path
 
 import pytest
+import tomllib
 
 REPO_ROOT = Path(__file__).parent.parent
 PYPROJECT_PATH = REPO_ROOT / 'pyproject.toml'
@@ -112,7 +113,9 @@ def test_project_dependencies_include_numpy(project: dict) -> None:  # type: ign
 
 def test_dev_optional_deps_present(pyproject: dict) -> None:  # type: ignore[type-arg]
     opt = pyproject['project'].get('optional-dependencies', {})
-    assert 'dev' in opt, '[project.optional-dependencies] must have a "dev" group'
+    assert 'dev' in opt, (
+        '[project.optional-dependencies] must have a "dev" group'
+    )
 
 
 def test_dev_deps_include_pytest(pyproject: dict) -> None:  # type: ignore[type-arg]
@@ -278,9 +281,11 @@ def test_running_python_meets_minimum_requirement() -> None:
 
 
 def test_version_line_has_semantic_release_marker() -> None:
-    """The version line in pyproject.toml carries the # semantic-release marker."""
+    """pyproject.toml version line carries the # semantic-release marker."""
     content = PYPROJECT_PATH.read_text()
-    assert re.search(r'version\s*=\s*"[^"]*"\s*#\s*semantic-release', content), (
+    assert re.search(
+        r'version\s*=\s*"[^"]*"\s*#\s*semantic-release', content
+    ), (
         'pyproject.toml version line must have "# semantic-release" comment '
         'so the release automation can update it'
     )
