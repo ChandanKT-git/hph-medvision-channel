@@ -1,5 +1,9 @@
 """Shared utilities for MedVision channel skills."""
 
+from shared.confidence import (
+    CalibrationError,
+    TemperatureScaling,
+)
 from shared.explainability import (
     AttentionRollout,
     GradCAMExplainer,
@@ -16,12 +20,14 @@ from shared.preprocessing import (
 
 __all__ = [
     'AttentionRollout',
+    'CalibrationError',
     'GradCAMExplainer',
     'ImagePreprocessor',
     'ImageQualityError',
     'ModelIntegrityError',
     'ModelRegistry',
     'QualityThresholds',
+    'TemperatureScaling',
     'get_explainer',
     'overlay_heatmap',
     'reshape_transform',
