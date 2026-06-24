@@ -128,3 +128,28 @@ class TemperatureScaling(nn.Module):
                 f'optimisation produced invalid temperature {learned_t:.4f}'
             )
         return learned_t
+
+    def forward(self, logits: torch.Tensor) -> torch.Tensor:
+        """Scale logits by the learned temperature.
+
+        Parameters
+        ----------
+        logits : torch.Tensor
+            Raw model outputs, shape ``(N, C)`` or
+            ``(1, C)`` for single-sample inference.
+
+        Returns
+        -------
+        torch.Tensor
+            Calibrated probabilities after temperature
+            scaling and softmax, same shape as input.
+
+        Raises
+        ------
+        CalibrationError
+            If ``fit()`` has not been called yet.
+        """
+        if not self._fitted:
+            raise CalibrationError('fit() must be called before forward()')
+        scaled = logits / self._temperature
+        return torch.softmax(scaled, dim=-1)
