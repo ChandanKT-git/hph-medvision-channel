@@ -58,3 +58,40 @@ class TestTemperatureScaling:
             CalibrationError, match='5 samples but labels has 4'
         ):
             scaler.fit(logits, labels)
+
+    def test_fit_learns_temperature(self) -> None:
+        torch.manual_seed(42)
+        # Create "overconfident" logits for 100 samples, 3 classes
+        # The correct class (label 0) has a logit of 5.0 (very high)
+        logits = torch.randn(100, 3)
+        logits[:, 0] = 5.0
+
+        # But we make the labels random! So the model is very confident
+        # but completely wrong. To minimize NLL, the temperature MUST
+        # increase (> 1.5) to soften those overconfident 5.0 logits.
+        labels = torch.randint(0, 3, (100,))
+
+        scaler = TemperatureScaling(initial_temperature=1.0)
+        learned_t = scaler.fit(logits, labels)
+
+        assert scaler._fitted
+        assert learned_t == scaler.temperature
+        assert learned_t > 1.0  # T increased to soften overconfidence
+
+    def test_forward_produces_valid_probabilities(self) -> None:
+        scaler = TemperatureScaling(initial_temperature=2.0)
+        scaler._fitted = True  # Hack for testing forward without fitting
+
+        logits = torch.tensor([[2.0, 4.0, 6.0]])
+        probs = scaler(logits)
+
+        # Shape should match
+        assert probs.shape == (1, 3)
+
+        # Probabilities should sum to 1.0
+        assert torch.allclose(probs.sum(dim=-1), torch.tensor(1.0))
+
+        # With T=2.0, logits [2, 4, 6] become [1, 2, 3]
+        # Softmax of [1, 2, 3] is roughly [0.09, 0.24, 0.66]
+        expected = torch.softmax(torch.tensor([[1.0, 2.0, 3.0]]), dim=-1)
+        assert torch.allclose(probs, expected)
