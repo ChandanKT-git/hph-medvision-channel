@@ -351,11 +351,18 @@ def create_fold_splits(
         )
         indices = np.arange(len(labels))
         splits = list(sss.split(indices, labels))
-        print(
-            f'[split] Dev mode: single 80/20 split '
-            f'(train={len(splits[0][0])}, '
-            f'val={len(splits[0][1])})'
-        )
+        if cfg.fast_dev_mode:
+            splits = [(splits[0][0][:64], splits[0][1][:16])]
+            print(
+                f'[split] FAST dev mode active: truncated to '
+                f'train={len(splits[0][0])}, val={len(splits[0][1])}'
+            )
+        else:
+            print(
+                f'[split] Dev mode: single 80/20 split '
+                f'(train={len(splits[0][0])}, '
+                f'val={len(splits[0][1])})'
+            )
         return splits
 
     sgkf = StratifiedGroupKFold(

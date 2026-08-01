@@ -28,11 +28,23 @@ Colab Quick Start
     %cd hph-medvision-channel
     !pip install -e . -q
 
-    # Cell 2: Train (dev mode)
-    !python -m training.train --data-dir ./training/data --dev
+    # Cell 2: Mount Google Drive (where your data is stored)
+    from google.colab import drive
+    drive.mount('/content/drive')
 
-    # Cell 3: Full 5-fold
-    !python -m training.train --data-dir ./training/data
+    # Cell 3: Fast Dev Mode (1 epoch, 64 images - finishes in seconds)
+    !python -m training.train \\
+        --data-dir "/content/drive/MyDrive/path/to/your/data" \\
+        --fast-dev --no-wandb
+
+    # Cell 4: Train (dev mode - full dataset, 1 split)
+    !python -m training.train \\
+        --data-dir "/content/drive/MyDrive/path/to/your/data" \\
+        --dev --no-wandb
+
+    # Cell 5: Full 5-fold (when you're ready for the final run)
+    !python -m training.train \\
+        --data-dir "/content/drive/MyDrive/path/to/your/data"
 """
 
 from __future__ import annotations
@@ -130,6 +142,11 @@ def parse_args() -> argparse.Namespace:
         help='Dev mode: single 80/20 split',
     )
     parser.add_argument(
+        '--fast-dev',
+        action='store_true',
+        help='Fast dev mode: 1 epoch, tiny dataset',
+    )
+    parser.add_argument(
         '--no-wandb',
         action='store_true',
         help='Disable Weights & Biases logging',
@@ -158,12 +175,13 @@ def main() -> None:
         data_dir=Path(args.data_dir),
         output_dir=Path(args.output_dir),
         batch_size=args.batch_size,
-        num_epochs_phase1=args.num_epochs_phase1,
-        num_epochs_phase2=args.num_epochs_phase2,
+        num_epochs_phase1=1 if args.fast_dev else args.num_epochs_phase1,
+        num_epochs_phase2=1 if args.fast_dev else args.num_epochs_phase2,
         learning_rate=args.lr,
         finetune_lr=args.finetune_lr,
         n_folds=args.n_folds,
-        dev_mode=args.dev,
+        dev_mode=args.dev or args.fast_dev,
+        fast_dev_mode=args.fast_dev,
         use_wandb=not args.no_wandb,
         seed=args.seed,
         num_workers=args.num_workers,

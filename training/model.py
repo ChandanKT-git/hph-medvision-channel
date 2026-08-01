@@ -12,7 +12,7 @@ Architecture::
              │ 384-dim CLS token
              ▼
     ┌─────────────────────┐
-    │  Classification Head │  Always trainable
+    │  Classification Head│  Always trainable
     │  LayerNorm(384)     │
     │  Dropout(0.3)       │
     │  Linear(384 → 7)    │

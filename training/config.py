@@ -110,6 +110,8 @@ class TrainingConfig:
     # ── Cross-Validation ─────────────────────────────────
     n_folds: int = 5
     dev_mode: bool = False
+    # Truncates dataset to tiny subset for testing pipeline
+    fast_dev_mode: bool = False
 
     # ── Data Handling ────────────────────────────────────
     target_size: int = 224
