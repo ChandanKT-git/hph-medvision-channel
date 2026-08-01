@@ -1,0 +1,56 @@
+{
+  "dataset": "HAM10000 / ISIC 2018",
+  "num_classes": 7,
+  "body_site": "skin",
+  "classes": [
+    {
+      "index": 0,
+      "name": "melanocytic_nevi",
+      "display_name": "Melanocytic Nevus",
+      "snomed_code": "400010006",
+      "snomed_display": "Melanocytic nevus"
+    },
+    {
+      "index": 1,
+      "name": "melanoma",
+      "display_name": "Melanoma",
+      "snomed_code": "372244006",
+      "snomed_display": "Malignant melanoma"
+    },
+    {
+      "index": 2,
+      "name": "basal_cell_carcinoma",
+      "display_name": "Basal Cell Carcinoma",
+      "snomed_code": "254701007",
+      "snomed_display": "Basal cell carcinoma"
+    },
+    {
+      "index": 3,
+      "name": "actinic_keratosis",
+      "display_name": "Actinic Keratosis",
+      "snomed_code": "201101007",
+      "snomed_display": "Actinic keratosis"
+    },
+    {
+      "index": 4,
+      "name": "benign_keratosis",
+      "display_name": "Benign Keratosis",
+      "snomed_code": "400048001",
+      "snomed_display": "Benign keratosis"
+    },
+    {
+      "index": 5,
+      "name": "dermatofibroma",
+      "display_name": "Dermatofibroma",
+      "snomed_code": "254792001",
+      "snomed_display": "Dermatofibroma"
+    },
+    {
+      "index": 6,
+      "name": "vascular_lesion",
+      "display_name": "Vascular Lesion",
+      "snomed_code": "400178008",
+      "snomed_display": "Vascular lesion"
+    }
+  ]
+}
