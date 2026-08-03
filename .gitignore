@@ -216,3 +216,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Training Data and Outputs
+training/data/
+outputs/
+*.pth
