@@ -115,7 +115,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         '--num-epochs-phase2',
         type=int,
-        default=15,
+        default=25,
         help='Epochs for Phase 2 (fine-tuning)',
     )
     parser.add_argument(
@@ -294,15 +294,17 @@ def main() -> None:
         # Evaluate this fold with best checkpoint.
         model.load_state_dict(torch.load(best_ckpt))
         model.to(device)
-        preds, true_labels, _logits = collect_predictions(
+        preds, true_labels, logits = collect_predictions(
             model,
             val_loader,
             device,
+            tta_runs=cfg.tta_runs,
         )
         metrics = compute_metrics(
             true_labels,
             preds,
             cfg.class_names,
+            logits=logits,
         )
         fold_metrics.append(metrics)
 
@@ -311,6 +313,9 @@ def main() -> None:
             f'  Balanced Accuracy: {metrics["balanced_accuracy"] * 100:.1f}%'
         )
         print(f"  Cohen's Kappa:     {metrics['cohen_kappa']:.3f}")
+        print(f'  Macro F1:          {metrics["macro_f1"]:.3f}')
+        if 'auc_roc' in metrics:
+            print(f'  AUC-ROC (OVR):     {metrics["auc_roc"]:.3f}')
 
     total_time = time.time() - total_start
 

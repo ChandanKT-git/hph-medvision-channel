@@ -14,8 +14,10 @@ Architecture::
     ┌─────────────────────┐
     │  Classification Head│  Always trainable
     │  LayerNorm(384)     │
+    │  Linear(384 → 128)  │
+    │  GELU               │
     │  Dropout(0.3)       │
-    │  Linear(384 → 7)    │
+    │  Linear(128 → 7)    │
     └────────┬────────────┘
              │ 7 logits
              ▼
@@ -58,8 +60,10 @@ def build_model(cfg: TrainingConfig) -> nn.Module:
     # Replace the identity head with our classification head.
     backbone.head = nn.Sequential(  # type: ignore[attr-defined]
         nn.LayerNorm(cfg.embed_dim),
+        nn.Linear(cfg.embed_dim, 128),
+        nn.GELU(),
         nn.Dropout(p=0.3),
-        nn.Linear(cfg.embed_dim, cfg.num_classes),
+        nn.Linear(128, cfg.num_classes),
     )
 
     # Ensure head is always trainable.

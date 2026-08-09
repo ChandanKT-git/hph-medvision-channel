@@ -93,19 +93,21 @@ class TrainingConfig:
     backbone: str = 'dinov2_vits14'
     embed_dim: int = 384
     freeze_backbone: bool = True
-    unfreeze_last_n: int = 2
+    unfreeze_last_n: int = 4
 
     # ── Training Hyperparameters ─────────────────────────
     batch_size: int = 32
     num_epochs_phase1: int = 15
-    num_epochs_phase2: int = 15
+    num_epochs_phase2: int = 25
     learning_rate: float = 1e-3
     finetune_lr: float = 1e-5
     weight_decay: float = 0.01
     label_smoothing: float = 0.1
-    focal_gamma: float = 2.0
+    focal_gamma: float = 1.0
     warmup_epochs: int = 3
-    patience: int = 7
+    patience: int = 10
+    use_mixup: bool = True
+    mixup_alpha: float = 0.4
 
     # ── Cross-Validation ─────────────────────────────────
     n_folds: int = 5
@@ -117,6 +119,7 @@ class TrainingConfig:
     target_size: int = 224
     num_workers: int = 2
     use_weighted_sampler: bool = True
+    tta_runs: int = 5  # Test-time augmentation passes
 
     # ── Experiment Tracking ──────────────────────────────
     use_wandb: bool = True
@@ -153,13 +156,13 @@ class TrainingConfig:
     # ── Class Weights (from EDA) ─────────────────────────
     class_weights: list[float] = field(
         default_factory=lambda: [
-            1.2855,  # mel
-            0.2134,  # nv
-            2.7835,  # bcc
-            4.3753,  # akiec
-            1.3018,  # bkl
-            12.441,  # df
-            10.0755,  # vasc
+            1.134,  # mel
+            0.462,  # nv
+            1.668,  # bcc
+            2.092,  # akiec
+            1.141,  # bkl
+            3.527,  # df
+            3.174,  # vasc
         ],
     )
 

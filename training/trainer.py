@@ -98,6 +98,61 @@ class FocalLoss(nn.Module):
         focal_loss = ((1 - pt) ** self.gamma) * ce_loss
         return focal_loss.mean()
 
+    def forward_mixup(
+        self,
+        logits: torch.Tensor,
+        targets_a: torch.Tensor,
+        targets_b: torch.Tensor,
+        lam: float,
+    ) -> torch.Tensor:
+        """Focal loss for mixup-blended targets."""
+        loss_a = self.ce(logits, targets_a)
+        pt_a = torch.exp(-loss_a)
+        focal_a = ((1 - pt_a) ** self.gamma) * loss_a
+
+        loss_b = self.ce(logits, targets_b)
+        pt_b = torch.exp(-loss_b)
+        focal_b = ((1 - pt_b) ** self.gamma) * loss_b
+
+        return (lam * focal_a + (1 - lam) * focal_b).mean()
+
+
+# ── Mixup Augmentation ──────────────────────────────────────
+
+
+def mixup_data(
+    images: torch.Tensor,
+    labels: torch.Tensor,
+    alpha: float = 0.4,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, float]:
+    """Apply Mixup augmentation.
+
+    Blends pairs of images and returns both sets of
+    labels so the loss can be computed as a weighted
+    combination.
+
+    Parameters
+    ----------
+    images : torch.Tensor
+        Batch of images.
+    labels : torch.Tensor
+        Batch of labels.
+    alpha : float
+        Beta distribution parameter.  Higher = more
+        aggressive blending.
+
+    Returns
+    -------
+    tuple
+        ``(mixed_images, labels_a, labels_b, lam)``
+    """
+    lam = np.random.beta(alpha, alpha) if alpha > 0 else 1.0
+    batch_size = images.size(0)
+    index = torch.randperm(batch_size, device=images.device)
+
+    mixed = lam * images + (1 - lam) * images[index]
+    return mixed, labels, labels[index], lam
+
 
 # ── Learning Rate Scheduler ─────────────────────────────────
 
@@ -145,9 +200,11 @@ def _cosine_lr_with_warmup(
 def train_one_epoch(
     model: nn.Module,
     loader: DataLoader,  # type: ignore[type-arg]
-    criterion: nn.Module,
+    criterion: FocalLoss,
     optimizer: torch.optim.Optimizer,
     device: torch.device,
+    use_mixup: bool = False,
+    mixup_alpha: float = 0.4,
 ) -> tuple[float, float]:
     """Run one training epoch.
 
@@ -166,14 +223,36 @@ def train_one_epoch(
         labels = labels.to(device)
 
         optimizer.zero_grad()
-        logits = model(images)
-        loss = criterion(logits, labels)
+
+        if use_mixup:
+            mixed, targets_a, targets_b, lam = mixup_data(
+                images,
+                labels,
+                mixup_alpha,
+            )
+            logits = model(mixed)
+            loss = criterion.forward_mixup(
+                logits,
+                targets_a,
+                targets_b,
+                lam,
+            )
+            # Accuracy uses the dominant label.
+            predicted = logits.argmax(dim=1)
+            correct += (
+                lam * predicted.eq(targets_a).sum().item()
+                + (1 - lam) * predicted.eq(targets_b).sum().item()
+            )
+        else:
+            logits = model(images)
+            loss = criterion(logits, labels)
+            predicted = logits.argmax(dim=1)
+            correct += predicted.eq(labels).sum().item()
+
         loss.backward()
         optimizer.step()
 
         total_loss += loss.item() * images.size(0)
-        predicted = logits.argmax(dim=1)
-        correct += predicted.eq(labels).sum().item()
         total += labels.size(0)
 
     avg_loss = total_loss / max(total, 1)
@@ -318,6 +397,8 @@ def train_fold(
                 criterion,
                 optimizer,
                 device,
+                use_mixup=cfg.use_mixup,
+                mixup_alpha=cfg.mixup_alpha,
             )
 
             # Validate.

@@ -20,11 +20,14 @@ import numpy as np
 import numpy.typing as npt
 import torch
 
+from scipy.special import softmax
 from sklearn.metrics import (
     balanced_accuracy_score,
     classification_report,
     cohen_kappa_score,
     confusion_matrix,
+    f1_score,
+    roc_auc_score,
 )
 from torch import nn
 from torch.utils.data import DataLoader
@@ -37,8 +40,19 @@ def collect_predictions(
     model: nn.Module,
     loader: DataLoader,  # type: ignore[type-arg]
     device: torch.device,
+    tta_runs: int = 1,
 ) -> tuple[npt.NDArray[Any], npt.NDArray[Any], npt.NDArray[Any]]:
     """Collect all predictions, true labels, and logits.
+
+    Parameters
+    ----------
+    model : nn.Module
+    loader : DataLoader
+    device : torch.device
+    tta_runs : int
+        Number of TTA (Test-Time Augmentation) passes.
+        1 = no TTA.  >1 = apply random flips and
+        average logits.
 
     Returns
     -------
@@ -46,23 +60,73 @@ def collect_predictions(
         ``(predictions, true_labels, logits)``
     """
     model.eval()
-    all_preds: list[int] = []
-    all_labels: list[int] = []
-    all_logits: list[npt.NDArray[Any]] = []
 
-    for images, labels in loader:
-        images = images.to(device)
-        logits = model(images)
+    if tta_runs <= 1:
+        # Standard inference (no TTA).
+        all_preds: list[int] = []
+        all_labels: list[int] = []
+        all_logits: list[npt.NDArray[Any]] = []
 
-        predicted = logits.argmax(dim=1)
-        all_preds.extend(predicted.cpu().tolist())
-        all_labels.extend(labels.tolist())
-        all_logits.append(logits.cpu().numpy())
+        for images, labels in loader:
+            images = images.to(device)
+            logits = model(images)
+
+            predicted = logits.argmax(dim=1)
+            all_preds.extend(predicted.cpu().tolist())
+            all_labels.extend(labels.tolist())
+            all_logits.append(logits.cpu().numpy())
+
+        return (
+            np.array(all_preds),
+            np.array(all_labels),
+            np.concatenate(all_logits, axis=0),
+        )
+
+    # TTA: run multiple passes with random flips,
+    # then average logits.
+    all_labels_tta: list[int] = []
+    accumulated_logits: npt.NDArray[Any] | None = None
+
+    for tta_idx in range(tta_runs):
+        run_logits: list[npt.NDArray[Any]] = []
+        if tta_idx == 0:
+            # First run: collect labels.
+            for images, labels in loader:
+                images = images.to(device)
+                # Apply random flips for TTA.
+                if tta_idx > 0:
+                    if tta_idx % 2 == 1:
+                        images = torch.flip(images, [2])
+                    if tta_idx % 3 >= 1:
+                        images = torch.flip(images, [3])
+                logits = model(images)
+                run_logits.append(logits.cpu().numpy())
+                all_labels_tta.extend(labels.tolist())
+        else:
+            for images, labels in loader:
+                images = images.to(device)
+                # Deterministic augmentation per TTA run.
+                if tta_idx % 2 == 1:
+                    images = torch.flip(images, [2])
+                if tta_idx % 3 >= 1:
+                    images = torch.flip(images, [3])
+                logits = model(images)
+                run_logits.append(logits.cpu().numpy())
+
+        run_logits_arr = np.concatenate(run_logits, axis=0)
+        if accumulated_logits is None:
+            accumulated_logits = run_logits_arr
+        else:
+            accumulated_logits += run_logits_arr
+
+    assert accumulated_logits is not None
+    avg_logits = accumulated_logits / tta_runs
+    avg_preds = avg_logits.argmax(axis=1)
 
     return (
-        np.array(all_preds),
-        np.array(all_labels),
-        np.concatenate(all_logits, axis=0),
+        avg_preds,
+        np.array(all_labels_tta),
+        avg_logits,
     )
 
 
@@ -70,6 +134,7 @@ def compute_metrics(
     y_true: npt.NDArray[Any],
     y_pred: npt.NDArray[Any],
     class_names: list[str],
+    logits: npt.NDArray[Any] | None = None,
 ) -> dict[str, Any]:
     """Compute comprehensive classification metrics.
 
@@ -81,6 +146,9 @@ def compute_metrics(
         Predicted labels.
     class_names : list[str]
         Ordered class names for the report.
+    logits : np.ndarray | None
+        Raw model logits for AUC-ROC computation.
+        Shape ``(n_samples, n_classes)``.
 
     Returns
     -------
@@ -90,6 +158,31 @@ def compute_metrics(
     bal_acc = balanced_accuracy_score(y_true, y_pred)
     kappa = cohen_kappa_score(y_true, y_pred)
     cm = confusion_matrix(y_true, y_pred)
+    macro_f1 = float(
+        f1_score(
+            y_true,
+            y_pred,
+            average='macro',
+            zero_division=0,
+        )
+    )
+
+    # AUC-ROC (one-vs-rest, macro averaged).
+    auc_roc = None
+    if logits is not None:
+        try:
+            probs = softmax(logits, axis=1)
+            auc_roc = float(
+                roc_auc_score(
+                    y_true,
+                    probs,
+                    multi_class='ovr',
+                    average='macro',
+                )
+            )
+        except ValueError:
+            # Can fail if a class is missing from y_true.
+            auc_roc = None
 
     # Per-class report as dict.
     report = classification_report(
@@ -100,9 +193,10 @@ def compute_metrics(
         zero_division=0,
     )
 
-    return {
+    result: dict[str, Any] = {
         'balanced_accuracy': float(bal_acc),
         'cohen_kappa': float(kappa),
+        'macro_f1': macro_f1,
         'confusion_matrix': cm.tolist(),
         'classification_report': report,
         'per_class': {
@@ -124,6 +218,9 @@ def compute_metrics(
             if name in report
         },
     }
+    if auc_roc is not None:
+        result['auc_roc'] = auc_roc
+    return result
 
 
 def aggregate_fold_metrics(
@@ -144,6 +241,7 @@ def aggregate_fold_metrics(
     """
     bal_accs = [m['balanced_accuracy'] for m in fold_metrics]
     kappas = [m['cohen_kappa'] for m in fold_metrics]
+    macro_f1s = [m['macro_f1'] for m in fold_metrics]
 
     result: dict[str, Any] = {
         'n_folds': len(fold_metrics),
@@ -156,7 +254,19 @@ def aggregate_fold_metrics(
             'mean': float(np.mean(kappas)),
             'std': float(np.std(kappas)),
         },
+        'macro_f1': {
+            'mean': float(np.mean(macro_f1s)),
+            'std': float(np.std(macro_f1s)),
+        },
     }
+
+    # AUC-ROC (only if all folds computed it).
+    auc_rocs = [m['auc_roc'] for m in fold_metrics if 'auc_roc' in m]
+    if len(auc_rocs) == len(fold_metrics):
+        result['auc_roc'] = {
+            'mean': float(np.mean(auc_rocs)),
+            'std': float(np.std(auc_rocs)),
+        }
 
     # Aggregate per-class metrics.
     if fold_metrics and 'per_class' in fold_metrics[0]:
@@ -255,6 +365,20 @@ def print_summary(
             print(f"Cohen's Kappa:     {ck['mean']:.3f} +/- {ck['std']:.3f}")
         else:
             print(f"Cohen's Kappa:     {ck:.3f}")
+
+    if 'macro_f1' in metrics:
+        mf = metrics['macro_f1']
+        if isinstance(mf, dict):
+            print(f'Macro F1:          {mf["mean"]:.3f} +/- {mf["std"]:.3f}')
+        else:
+            print(f'Macro F1:          {mf:.3f}')
+
+    if 'auc_roc' in metrics:
+        ar = metrics['auc_roc']
+        if isinstance(ar, dict):
+            print(f'AUC-ROC (OVR):     {ar["mean"]:.3f} +/- {ar["std"]:.3f}')
+        else:
+            print(f'AUC-ROC (OVR):     {ar:.3f}')
 
     if 'per_class' in metrics:
         print('\nPer-class metrics:')
