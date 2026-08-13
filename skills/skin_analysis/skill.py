@@ -137,3 +137,42 @@ def _load_model(weights_path: Path) -> nn.Module:
     model.eval()
 
     return model
+
+
+def _determine_requires_review(
+    class_probs: dict[str, float],
+    top_confidence: float,
+) -> bool:
+    """Decide if the prediction needs human review.
+
+    Two safety rules trigger clinician review:
+
+    1. **Low confidence** — the model's top prediction
+       is below ``_DEFAULT_CONFIDENCE_THRESHOLD`` (0.7),
+       meaning the model is uncertain.
+    2. **Dangerous class** — melanoma or basal cell
+       carcinoma has probability above
+       ``_DANGEROUS_THRESHOLD`` (0.1), even if a benign
+       class is the top prediction.
+
+    Parameters
+    ----------
+    class_probs : dict[str, float]
+        Mapping of class names to their probabilities.
+    top_confidence : float
+        The confidence of the highest-scoring class.
+
+    Returns
+    -------
+    bool
+        ``True`` if the prediction should be flagged
+        for human clinician review.
+    """
+    if top_confidence < _DEFAULT_CONFIDENCE_THRESHOLD:
+        return True
+
+    for cls_name in _DANGEROUS_CLASSES:
+        if class_probs.get(cls_name, 0.0) > _DANGEROUS_THRESHOLD:
+            return True
+
+    return False
