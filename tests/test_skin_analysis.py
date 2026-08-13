@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock, patch
+
+import numpy as np
+import torch
+
 from hiperhealth.pipeline.context import PipelineContext
 
 from skills.skin_analysis.skill import SkinAnalysisSkill
@@ -39,3 +44,110 @@ def test_check_requirements_wrong_stage() -> None:
     inquiries = skill.check_requirements('diagnosis', ctx)
 
     assert len(inquiries) == 0
+
+
+@patch('skills.skin_analysis.skill.ImagePreprocessor')
+@patch('skills.skin_analysis.skill.ModelRegistry')
+@patch('skills.skin_analysis.skill._load_model')
+@patch('skills.skin_analysis.skill.get_explainer')
+@patch('skills.skin_analysis.skill.cv2.imwrite')
+@patch('skills.skin_analysis.skill.cv2.imread')
+def test_execute_happy_path(
+    mock_imread: MagicMock,
+    mock_imwrite: MagicMock,
+    mock_get_explainer: MagicMock,
+    mock_load_model: MagicMock,
+    mock_registry: MagicMock,
+    mock_preprocessor: MagicMock,
+) -> None:
+    """Test execute hook runs inference and saves heatmap."""
+    mock_prep_inst = mock_preprocessor.return_value
+    mock_prep_inst.preprocess.return_value = torch.randn(1, 3, 224, 224)
+
+    mock_model = mock_load_model.return_value
+    mock_model.return_value = torch.randn(1, 7)
+
+    mock_exp = mock_get_explainer.return_value
+    mock_exp.generate.return_value = np.zeros((224, 224), dtype=np.float32)
+
+    mock_imread.return_value = np.zeros((224, 224, 3), dtype=np.uint8)
+
+    skill = SkinAnalysisSkill()
+    ctx = PipelineContext(
+        patient={'skin_image': '/fake/img.jpg'},
+        session_id='test1',
+    )
+
+    ctx = skill.execute('intake', ctx)
+
+    assert 'visual_observations' in ctx.results['intake']
+    obs = ctx.results['intake']['visual_observations'][0]
+
+    assert obs['skill'] == 'medvision.skin_analysis'
+    assert obs['status'] == 'preliminary'
+    assert 'heatmap_path' in obs
+    assert obs['heatmap_path'] is not None
+
+
+def test_execute_no_image() -> None:
+    """Test execute hook skips if skin_image is missing."""
+    skill = SkinAnalysisSkill()
+    ctx = PipelineContext(patient={})
+    ctx = skill.execute('intake', ctx)
+    assert 'intake' not in ctx.results
+
+
+@patch('skills.skin_analysis.skill.ImagePreprocessor')
+@patch('skills.skin_analysis.skill.ModelRegistry')
+@patch('skills.skin_analysis.skill._load_model')
+@patch('skills.skin_analysis.skill.get_explainer')
+def test_execute_preprocessing_error(
+    mock_get_explainer: MagicMock,
+    mock_load_model: MagicMock,
+    mock_registry: MagicMock,
+    mock_preprocessor: MagicMock,
+) -> None:
+    """Test execute hook handles preprocessing errors gracefully."""
+    mock_prep_inst = mock_preprocessor.return_value
+    from shared.preprocessing import ImageQualityError
+
+    mock_prep_inst.preprocess.side_effect = ImageQualityError('Too dark')
+
+    skill = SkinAnalysisSkill()
+    ctx = PipelineContext(patient={'skin_image': '/fake/img.jpg'})
+
+    ctx = skill.execute('intake', ctx)
+
+    obs = ctx.results['intake']['visual_observations'][0]
+    assert obs['status'] == 'error'
+    assert 'Too dark' in obs['error']
+
+
+@patch('skills.skin_analysis.skill.ImagePreprocessor')
+@patch('skills.skin_analysis.skill.ModelRegistry')
+@patch('skills.skin_analysis.skill._load_model')
+@patch('skills.skin_analysis.skill.get_explainer')
+def test_execute_gradcam_failure(
+    mock_get_explainer: MagicMock,
+    mock_load_model: MagicMock,
+    mock_registry: MagicMock,
+    mock_preprocessor: MagicMock,
+) -> None:
+    """Test execute hook continues if Grad-CAM fails."""
+    mock_prep_inst = mock_preprocessor.return_value
+    mock_prep_inst.preprocess.return_value = torch.randn(1, 3, 224, 224)
+
+    mock_model = mock_load_model.return_value
+    mock_model.return_value = torch.randn(1, 7)
+
+    mock_exp = mock_get_explainer.return_value
+    mock_exp.generate.side_effect = RuntimeError('GradCAM failed')
+
+    skill = SkinAnalysisSkill()
+    ctx = PipelineContext(patient={'skin_image': '/fake/img.jpg'})
+
+    ctx = skill.execute('intake', ctx)
+
+    obs = ctx.results['intake']['visual_observations'][0]
+    assert obs['status'] == 'preliminary'
+    assert obs['heatmap_path'] is None
