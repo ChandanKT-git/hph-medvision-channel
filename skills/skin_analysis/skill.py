@@ -176,3 +176,71 @@ def _determine_requires_review(
             return True
 
     return False
+
+
+def _format_prompt_fragment(
+    observations: list[dict[str, Any]],
+) -> str:
+    """Format visual observations as text for the LLM.
+
+    This text gets injected into the DiagnosticsSkill's
+    system prompt via
+    ``ctx.extras['prompt_fragments']['diagnosis']``.
+
+    Parameters
+    ----------
+    observations : list[dict[str, Any]]
+        Visual observation dicts from the intake stage.
+
+    Returns
+    -------
+    str
+        Markdown-formatted summary of visual findings.
+        Empty string if no observations.
+    """
+    if not observations:
+        return ''
+
+    lines: list[str] = [
+        '## Visual Observations (MedVision Skin Analysis)',
+        '',
+        'The following skin lesion analysis was performed '
+        'using computer vision (DINOv2 + Grad-CAM):',
+        '',
+    ]
+
+    for obs in observations:
+        finding = obs.get('finding', 'unknown')
+        display = obs.get('display_name', finding)
+        confidence = obs.get('confidence', 0.0)
+        status = obs.get('status', 'preliminary')
+        review = obs.get('requires_review', True)
+
+        lines.append(f'- **Primary finding:** {display}')
+        cal_label = 'calibrated' if obs.get('calibrated') else 'raw'
+        lines.append(f'  - Confidence: {confidence:.0%} ({cal_label})')
+        lines.append(f'  - Status: {status}')
+        if review:
+            lines.append('  - ⚠️ Flagged for clinician review')
+
+        class_probs = obs.get('class_probabilities', {})
+        if class_probs:
+            sorted_probs = sorted(
+                class_probs.items(),
+                key=lambda x: x[1],
+                reverse=True,
+            )[:3]
+            lines.append('  - Differential:')
+            for name, prob in sorted_probs:
+                lines.append(f'    - {name}: {prob:.1%}')
+
+        lines.append('')
+
+    lines.append(
+        '> Note: This is an AI-assisted preliminary '
+        'observation. Clinical correlation is required. '
+        'Visual analysis should not be used as the sole '
+        'basis for diagnosis.'
+    )
+
+    return '\n'.join(lines)
