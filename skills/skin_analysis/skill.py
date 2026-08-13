@@ -456,7 +456,7 @@ class SkinAnalysisSkill(BaseSkill):
 
         # Step 3: Temperature-scaled probabilities.
         probs = self._scaler(logits)
-        probs_np = probs.squeeze(0).cpu().numpy()
+        probs_np = probs.detach().squeeze(0).cpu().numpy()
 
         pred_idx = int(np.argmax(probs_np))
         top_confidence = float(probs_np[pred_idx])

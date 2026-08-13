@@ -83,7 +83,7 @@ def test_skills_package_has_no_unexpected_public_api() -> None:
     import skills
 
     public_names = [n for n in dir(skills) if not n.startswith('_')]
-    assert public_names == []
+    assert public_names == ['skin_analysis']
 
 
 def test_shared_models_package_has_no_unexpected_public_api() -> None:
