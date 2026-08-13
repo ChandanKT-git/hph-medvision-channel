@@ -151,3 +151,47 @@ def test_execute_gradcam_failure(
     obs = ctx.results['intake']['visual_observations'][0]
     assert obs['status'] == 'preliminary'
     assert obs['heatmap_path'] is None
+
+
+def test_pre_injects_prompt_fragments() -> None:
+    """Test pre hook injects visual observations into diagnosis prompt."""
+    skill = SkinAnalysisSkill()
+    ctx = PipelineContext(patient={})
+    ctx.results['intake'] = {
+        'visual_observations': [
+            {
+                'finding': 'melanoma',
+                'display_name': 'Melanoma',
+                'confidence': 0.85,
+                'requires_review': True,
+            }
+        ]
+    }
+
+    ctx = skill.pre('diagnosis', ctx)
+
+    assert 'prompt_fragments' in ctx.extras
+    assert 'diagnosis' in ctx.extras['prompt_fragments']
+    fragment = ctx.extras['prompt_fragments']['diagnosis']
+    assert 'Melanoma' in fragment
+    assert '85%' in fragment
+    assert 'Flagged for clinician review' in fragment
+
+
+def test_pre_skips_when_no_observations() -> None:
+    """Test pre hook skips if no observations exist."""
+    skill = SkinAnalysisSkill()
+    ctx = PipelineContext(patient={})
+    ctx = skill.pre('diagnosis', ctx)
+    assert 'prompt_fragments' not in ctx.extras
+
+
+def test_pre_skips_error_observations() -> None:
+    """Test pre hook skips if observation is an error."""
+    skill = SkinAnalysisSkill()
+    ctx = PipelineContext(patient={})
+    ctx.results['intake'] = {
+        'visual_observations': [{'status': 'error', 'error': 'Too dark'}]
+    }
+    ctx = skill.pre('diagnosis', ctx)
+    assert 'prompt_fragments' not in ctx.extras
