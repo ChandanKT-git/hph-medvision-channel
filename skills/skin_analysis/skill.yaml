@@ -1,0 +1,21 @@
+api_version: 1
+name: skin_analysis
+version: "0.1.0"
+entry_point: "skill:SkinAnalysisSkill"
+stages:
+  - intake
+  - diagnosis
+description: >-
+  Skin lesion classification using fine-tuned DINOv2 ViT-S/14,
+  with Grad-CAM explainability and temperature-scaled
+  confidence calibration.  Classifies 7 HAM10000 dataset lesion types
+  with SNOMED CT coded results.
+author: "Chandan K T"
+license: "BSD 3-Clause"
+homepage: "https://github.com/hiperhealth/hph-medvision-channel"
+min_hiperhealth_version: ">=0.6.0"
+dependencies:
+  - monai>=1.3.0
+  - torch>=2.0.0
+  - torchvision>=0.15.0
+  - grad-cam>=1.5.0
