@@ -1,10 +1,23 @@
 """Shared pytest fixtures for MedVision tests."""
 
+from __future__ import annotations
+
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Generator
+from unittest.mock import MagicMock, patch
 
 import cv2
 import numpy as np
 import pytest
+import torch
+
+from hiperhealth.pipeline.context import PipelineContext
+from hiperhealth.pipeline.session import Session
+
+from skills.skin_analysis.skill import SkinAnalysisSkill
+
+# ── Unit-test image fixtures ──────────────────────────
 
 
 @pytest.fixture()
@@ -69,3 +82,86 @@ def corrupt_image(tmp_path: Path) -> Path:
     path = tmp_path / 'corrupt.jpg'
     path.write_bytes(b'\x00\x01\x02\x03\x04\x05')
     return path
+
+
+# ── Integration-test fixtures ─────────────────────────
+
+
+@contextmanager
+def _mock_skin_patches() -> Generator[
+    dict[str, MagicMock],
+    None,
+    None,
+]:
+    """Apply all heavy-dependency patches for SkinAnalysisSkill.
+
+    Patches DINOv2 model loading, ModelRegistry, ImagePreprocessor,
+    Grad-CAM explainer, and OpenCV I/O so integration tests run
+    without network access or GPU.
+    """
+    with (
+        patch('skills.skin_analysis.skill.ImagePreprocessor') as mock_prep,
+        patch('skills.skin_analysis.skill.ModelRegistry') as mock_reg,
+        patch('skills.skin_analysis.skill._load_model') as mock_load,
+        patch('skills.skin_analysis.skill.get_explainer') as mock_explainer,
+        patch('skills.skin_analysis.skill.cv2.imwrite') as mock_imwrite,
+        patch('skills.skin_analysis.skill.cv2.imread') as mock_imread,
+    ):
+        mock_prep.return_value.preprocess.return_value = torch.randn(
+            1, 3, 224, 224
+        )
+
+        mock_load.return_value.return_value = torch.randn(1, 7)
+
+        mock_explainer.return_value.generate.return_value = np.zeros(
+            (224, 224), dtype=np.float32
+        )
+
+        mock_imread.return_value = np.zeros((224, 224, 3), dtype=np.uint8)
+
+        yield {
+            'preprocessor': mock_prep,
+            'registry': mock_reg,
+            'load_model': mock_load,
+            'explainer': mock_explainer,
+            'imwrite': mock_imwrite,
+            'imread': mock_imread,
+        }
+
+
+@pytest.fixture()
+def mock_skin_skill() -> Generator[
+    SkinAnalysisSkill,
+    None,
+    None,
+]:
+    """SkinAnalysisSkill with all heavy deps mocked."""
+    with _mock_skin_patches():
+        yield SkinAnalysisSkill()
+
+
+@pytest.fixture()
+def pipeline_ctx_with_image() -> PipelineContext:
+    """PipelineContext with realistic patient data including skin_image."""
+    return PipelineContext(
+        patient={
+            'skin_image': '/fake/patient_42/skin_photo.jpg',
+            'chief_complaint': 'changing mole on left forearm',
+            'age': 45,
+        },
+        session_id='integration-test-001',
+    )
+
+
+@pytest.fixture()
+def tmp_session(tmp_path: Path) -> Session:
+    """Parquet-backed Session with clinical data pre-set."""
+    session_path = tmp_path / 'test_session.parquet'
+    session = Session.create(str(session_path))
+    session.set_clinical_data(
+        {
+            'chief_complaint': 'changing mole on left forearm',
+            'age': 45,
+        }
+    )
+    return session
