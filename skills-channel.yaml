@@ -1,0 +1,17 @@
+api_version: 1
+channel:
+  name: medvision
+  display_name: "MedVision — Visual Clinical Analysis"
+  default_alias: mv
+  version: "0.1.0"
+  description: >-
+    Medical image analysis skills with explainable AI,
+    using MONAI and PyTorch for clinical visual observations.
+  homepage: "https://github.com/hiperhealth/hph-medvision-channel"
+  license: "BSD-3-Clause"
+  min_hiperhealth_version: ">=0.6.0"
+
+skills:
+  - name: skin_analysis
+    enabled: true
+    tags: [dermatology, imaging, explainability]
