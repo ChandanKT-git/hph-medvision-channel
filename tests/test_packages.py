@@ -53,7 +53,7 @@ def test_shared_models_is_subpackage_of_shared() -> None:
 
 
 def test_shared_package_has_no_unexpected_public_api() -> None:
-    """Newly added empty __init__.py exposes no public names."""
+    """The shared/__init__.py exposes only the expected public names."""
     import shared
 
     public_names = [n for n in dir(shared) if not n.startswith('_')]
