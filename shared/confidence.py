@@ -45,6 +45,8 @@ class TemperatureScaling(nn.Module):
 
     def __init__(self, initial_temperature: float = 1.5) -> None:
         super().__init__()
+        if initial_temperature <= 0:
+            raise ValueError('initial_temperature must be > 0')
         self._temperature = nn.Parameter(
             torch.tensor(initial_temperature, dtype=torch.float32)
         )
@@ -107,6 +109,11 @@ class TemperatureScaling(nn.Module):
                 f'labels has {labels.size(0)}'
             )
 
+        if self._temperature.device != logits.device:
+            self.to(logits.device)
+        if labels.device != logits.device:
+            labels = labels.to(logits.device)
+
         optimizer = torch.optim.LBFGS(
             [self._temperature], lr=lr, max_iter=max_iter
         )
@@ -120,13 +127,15 @@ class TemperatureScaling(nn.Module):
             return loss
 
         optimizer.step(_closure)  # type: ignore[no-untyped-call]
-        self._fitted = True
 
         learned_t = self.temperature
-        if learned_t <= 0:
+        if (not torch.isfinite(self._temperature).item()) or learned_t <= 0:
+            self._fitted = False
             raise CalibrationError(
-                f'optimisation produced invalid temperature {learned_t:.4f}'
+                f'optimisation produced invalid temperature {learned_t!r}'
             )
+
+        self._fitted = True
         return learned_t
 
     def forward(self, logits: torch.Tensor) -> torch.Tensor:
