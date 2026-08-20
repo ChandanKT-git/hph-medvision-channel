@@ -39,7 +39,7 @@ The central component that implements `hiperhealth.pipeline.BaseSkill`. It orche
 
 - Employs **Temperature Scaling** to calibrate the raw model logits.
 - Ensures that the output probabilities represent true likelihoods (e.g., a prediction with 80% confidence is correct 80% of the time).
-- Helps prevent silent failures by explicitly flagging predictions that fall below a certain confidence threshold or are deemed "out of distribution" based on entropy metrics.
+- Helps prevent silent failures by flagging low-confidence predictions and elevated melanoma/BCC probabilities for clinician review.
 
 ## Data Flow Diagram
 

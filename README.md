@@ -8,7 +8,7 @@ It provides state-of-the-art medical computer vision capabilities that plug dire
 
 - **Skin Lesion Analysis (`medvision.skin_analysis`)**: An automated intake skill that processes dermoscopic images using a fine-tuned DINOv2 vision transformer. It classifies lesions into 7 categories (e.g., Melanoma, Basal Cell Carcinoma, Benign Nevi).
 - **Explainable AI (Grad-CAM)**: Generates heatmaps to highlight the regions of the image that contributed most to the model's prediction, aiding clinician trust and interpretability.
-- **Confidence Calibration**: Uses Temperature Scaling to ensure output probabilities represent true likelihoods, preventing silent failures on out-of-distribution images.
+- **Confidence Calibration**: Uses Temperature Scaling to calibrate output probabilities and support clinician-review flagging when confidence is low.
 - **Pipeline Integration**: Automatically intercepts the `intake` stage to inject visual observations and injects natural language summaries into the `diagnosis` stage via `prompt_fragments`.
 
 ## Installation
