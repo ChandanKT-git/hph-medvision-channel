@@ -138,6 +138,14 @@ class TemperatureScaling(nn.Module):
         self._fitted = True
         return learned_t
 
+    def mark_fitted(self) -> None:
+        """Manually mark the scaler as fitted.
+
+        Useful when loading a pre-calibrated temperature
+        without running the optimization loop.
+        """
+        self._fitted = True
+
     def forward(self, logits: torch.Tensor) -> torch.Tensor:
         """Scale logits by the learned temperature.
 
