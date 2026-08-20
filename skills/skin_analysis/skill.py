@@ -337,7 +337,7 @@ class SkinAnalysisSkill(BaseSkill):
         self._scaler = TemperatureScaling(
             initial_temperature=_FITTED_TEMPERATURE,
         )
-        self._scaler._fitted = True
+        self._scaler.mark_fitted()
 
         logger.info(
             '[%s] Model loaded successfully',
@@ -453,10 +453,10 @@ class SkinAnalysisSkill(BaseSkill):
         # Step 2: Inference.
         with torch.no_grad():
             logits = self._model(input_tensor)
+            # Step 3: Temperature-scaled probabilities.
+            probs = self._scaler(logits)
 
-        # Step 3: Temperature-scaled probabilities.
-        probs = self._scaler(logits)
-        probs_np = probs.detach().squeeze(0).cpu().numpy()
+        probs_np = probs.squeeze(0).cpu().numpy()
 
         pred_idx = int(np.argmax(probs_np))
         top_confidence = float(probs_np[pred_idx])
