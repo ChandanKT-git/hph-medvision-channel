@@ -1,0 +1,44 @@
+{
+  "dataset_name": "HAM10000 / ISIC 2018",
+  "eda_date": "2026-07-18T11:30:00.935566",
+  "total_images": 10015,
+  "total_unique_lesions": 7470,
+  "num_classes": 7,
+  "class_distribution": {
+    "nv": 6705,
+    "mel": 1113,
+    "bkl": 1099,
+    "bcc": 514,
+    "akiec": 327,
+    "vasc": 142,
+    "df": 115
+  },
+  "class_weights": {
+    "nv": 0.2134,
+    "mel": 1.2855,
+    "bkl": 1.3018,
+    "bcc": 2.7835,
+    "akiec": 4.3753,
+    "vasc": 10.0755,
+    "df": 12.441
+  },
+  "imbalance_ratio": 58.3,
+  "duplicate_lesion_images": 2545,
+  "histopathology_confirmed_pct": 53.3,
+  "missing_age_pct": 0.6,
+  "test_set_size": 1512,
+  "image_paths": {
+    "part1": "/home/chanduu/OSS/hiperhealth/hph-medvision-channel/training/data/HAM10000_images_part_1",
+    "part2": "/home/chanduu/OSS/hiperhealth/hph-medvision-channel/training/data/HAM10000_images_part_2",
+    "segmentation": "/home/chanduu/OSS/hiperhealth/hph-medvision-channel/training/data/HAM10000_segmentations_lesion_tschandl/HAM10000_segmentations_lesion_tschandl",
+    "test": "/home/chanduu/OSS/hiperhealth/hph-medvision-channel/training/data/ISIC2018_Task3_Test_Images/ISIC2018_Task3_Test_Images"
+  },
+  "training_recommendations": {
+    "cv_strategy": "StratifiedGroupKFold (group by lesion_id)",
+    "loss_function": "Focal Loss with class weights",
+    "sampler": "WeightedRandomSampler",
+    "primary_metric": "Balanced Accuracy",
+    "label_smoothing": 0.1,
+    "normalization": "ImageNet (mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])"
+  }
+}
